@@ -43,9 +43,13 @@ JbuilderTemplate.class_eval do
   protected
 
   ## Implementing our own version of _cache_key because jbuilder's is protected
-  def _cache_key_fetch_multi(key, options)
-    key = _fragment_name_with_digest_fetch_multi(key, options)
-    key = url_for(key).split('://', 2).last if ::Hash === key
+  def _cache_key_fetch_multi(key, options, digest = nil)
+    if digest
+      key = [key, digest]
+    else
+      key = _fragment_name_with_digest_fetch_multi(key, options)
+      key = url_for(key).split('://', 2).last if ::Hash === key
+    end
     ::ActiveSupport::Cache.expand_cache_key(key, :jbuilder)
   end
 
@@ -65,6 +69,8 @@ JbuilderTemplate.class_eval do
   def _keys_to_collection_map(collection, options)
     key = options.delete(:key)
 
+    digest = _fragment_name_with_digest_fetch_multi(collection, options).try(:last)
+
     collection.inject({}) do |result, item|
       cache_key =
           if key.respond_to?(:call)
@@ -74,7 +80,7 @@ JbuilderTemplate.class_eval do
           else
             item
           end
-      result[_cache_key_fetch_multi(cache_key, options)] = item
+      result[_cache_key_fetch_multi(cache_key, options, digest)] = item
       result
     end
   end
